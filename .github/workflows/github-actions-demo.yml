@@ -1,17 +1,24 @@
-name: GitHub Actions Demo # 워크플로우 이름
-run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
+name: Node.js CI
+run-name: ${{ github.actor }} is testing the application
 on: [push]
 jobs:
-  Explore-GitHub-Actions:
+  build:
     runs-on: ubuntu-latest # 어떤 환경(ubuntu-latest)에서 실행
     steps:
-      - run: echo "👋 Hello ${{ github.actor }}!"
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event." # ${{ }} 변수 선언
       - name: Check out repository code
         uses: actions/checkout@v6
-      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
-      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
-      - name: List files in the repository
-        run: |
-          ls ${{ github.workspace }}
-      - run: echo "🍏 This job's status is ${{ job.status }}."
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --runInBand
+
+      - name: Build application
+        run: npm run build
