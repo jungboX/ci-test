@@ -18,7 +18,7 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm test -- --runInBand
+        run: npm test
 
       - name: Build application
         run: npm run build
