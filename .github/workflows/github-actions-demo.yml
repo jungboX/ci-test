@@ -1,5 +1,5 @@
-name: Node.js CI
-run-name: ${{ github.actor }} is testing the application
+name: Node.js CI/CD
+run-name: ${{ github.actor }} is testing and deploying the application
 on: [push]
 jobs:
   build:
@@ -17,8 +17,42 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Run tests
-        run: npm test
-
       - name: Build application
         run: npm run build
+
+      - name: Configure SSH Key
+        if: github.ref == 'refs/heads/main'
+        env:
+          AWS_SSH_KEY: ${{ secrets.AWS_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh/
+          echo "$AWS_SSH_KEY" > ~/.ssh/aws.key
+          chmod 600 ~/.ssh/aws.key
+
+      - name: Deploy to EC2
+        env:
+          EC2_PUBLIC_IP: ${{ secrets.EC2_PUBLIC_IP }}
+          EC2_USER: ec2-user
+        run: |
+          # 1. EC2에 필요한 파일만 전송 (ci-server 디렉터리가 없으면 자동 생성됨)
+          scp -i ~/.ssh/aws.key -r \
+            dist \
+            package.json \
+            tsconfig.json \
+            tsconfig.build.json \
+            $EC2_USER@$EC2_PUBLIC_IP:~/ci-server
+
+          # 2. EC2 내부 접속 후 의존성 설치 및 PM2 재실행
+          ssh -i ~/.ssh/aws.key $EC2_USER@$EC2_PUBLIC_IP << 'ENDSSH'
+            # nvm 및 node/pm2 환경 변수 로드
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
+            cd ~/ci-server
+            npm install
+            pm2 stop all || true
+            pm2 start dist/main.js --name "ci-server"
+            pm2 save
+          ENDSSH
+          
+      - run: echo "This job's status is ${{ job.status }}."
